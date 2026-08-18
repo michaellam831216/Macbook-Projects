@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>食單 — 一張單子，看完一家店</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&family=Noto+Sans+TC:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   顏色與字型都定義在這裡，改這一區就能換掉整個網站的長相
+   ============================================================ */
+:root{
+  --ink:#12211E;         /* 主要文字：帶綠的深墨色 */
+  --board:#0F3B34;       /* 招牌綠：老店壓克力招牌的那種綠 */
+  --paper:#F2EDDF;       /* 點餐單的紙色 */
+  --paper-line:#D9D0B8;
+  --stamp:#C4342C;       /* 紅印章：重點、雷點 */
+  --lamp:#E8B33C;        /* 燈箱黃：評分、強調 */
+  --muted:#6E7B75;
+  --radius:10px;
+  --shadow:0 2px 0 rgba(0,0,0,.18);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--board);
+  color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  font-size:15px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;}
+:focus-visible{outline:3px solid var(--lamp); outline-offset:2px;}
+
+/* ---------- 頁首（招牌會跟著選到的店換名字） ---------- */
+header{
+  background:var(--board);
+  border-bottom:2px solid rgba(242,237,223,.18);
+  padding:20px 20px 18px;
+}
+.wrap{max-width:1120px;margin:0 auto;}
+.mark{
+  font-size:12px;letter-spacing:.42em;color:var(--lamp);
+  font-weight:700;margin:0 0 6px 3px;
+}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+.logo{
+  font-family:"Noto Serif TC",serif;font-weight:900;font-size:32px;
+  letter-spacing:.1em;color:var(--paper);
+  border:2px solid var(--lamp);padding:2px 16px 5px;border-radius:4px;
+}
+.tagline{color:rgba(242,237,223,.7);font-size:14px;letter-spacing:.04em;margin:0;}
+
+/* ---------- 搜尋列 ---------- */
+.searchbar{margin-top:18px;}
+.searchbar input{
+  width:100%;
+  background:var(--paper);border:none;border-radius:var(--radius);
+  padding:13px 16px;font-size:16px;color:var(--ink);
+  font-family:inherit;box-shadow:var(--shadow);
+}
+.searchbar input::placeholder{color:#9AA39D;}
+.tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.tag{
+  background:transparent;color:rgba(242,237,223,.8);
+  border:1px solid rgba(242,237,223,.35);border-radius:999px;
+  padding:5px 14px;font-size:13px;transition:.15s;
+}
+.tag:hover{border-color:var(--lamp);color:var(--lamp);}
+.tag[aria-pressed="true"]{background:var(--lamp);border-color:var(--lamp);color:var(--ink);font-weight:700;}
+
+/* ---------- 主要版面 ---------- */
+main{padding:22px 20px 60px;}
+.layout{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start;}
+@media (max-width:900px){ .layout{grid-template-columns:1fr;} }
+
+/* ---------- 左邊：店家清單 ---------- */
+.listhead{color:rgba(242,237,223,.6);font-size:12px;letter-spacing:.16em;margin:0 0 10px 2px;}
+.card{
+  width:100%;text-align:left;display:block;
+  background:var(--paper);border:none;border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.card:hover{transform:translateY(-2px);box-shadow:0 5px 0 rgba(0,0,0,.2);}
+.card[aria-current="true"]{box-shadow:0 0 0 3px var(--lamp), var(--shadow);}
+.card h3{margin:0;font-size:17px;font-weight:700;}
+.card .meta{margin:3px 0 0;color:var(--muted);font-size:13px;}
+.score{display:inline-flex;align-items:baseline;gap:4px;margin-top:6px;font-family:"Roboto Mono",monospace;font-weight:700;}
+.score b{font-size:18px;color:var(--stamp);}
+.score span{font-size:12px;color:var(--muted);font-weight:400;}
+.empty{background:var(--paper);border-radius:var(--radius);padding:18px;color:var(--muted);}
+
+/* ---------- 右邊：詳細內容 ---------- */
+.detail{background:var(--paper);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+.detail-head{padding:22px 24px 18px;border-bottom:1px dashed var(--paper-line);}
+.detail-head h2{margin:0;font-family:"Noto Serif TC",serif;font-size:27px;font-weight:900;letter-spacing:.02em;}
+.detail-head .addr{margin:6px 0 0;color:var(--muted);font-size:14px;}
+.chip{
+  display:inline-block;font-size:12px;font-weight:700;letter-spacing:.05em;
+  padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:2px;
+}
+.chip.open{background:#1F6B4A;color:#EAF6EF;}
+.chip.closed{background:#B9B2A0;color:#3A3A34;}
+
+/* 招牌元素：收據樣式的重點單 */
+.slip{
+  margin:20px 24px;background:#FFFDF6;
+  border:1px solid var(--paper-line);
+  border-radius:6px;padding:18px 20px 20px;position:relative;
+}
+.slip::before{
+  content:"";position:absolute;left:0;right:0;top:-1px;height:5px;
+  background:repeating-linear-gradient(90deg,var(--stamp) 0 12px,transparent 12px 24px);
+  border-radius:6px 6px 0 0;
+}
+.slip h4{
+  margin:4px 0 14px;font-size:12px;letter-spacing:.22em;color:var(--stamp);
+  font-weight:700;font-family:"Roboto Mono",monospace;
+}
+.slip dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:10px 14px;}
+.slip dt{
+  font-size:12px;font-weight:700;letter-spacing:.08em;color:#fff;
+  background:var(--board);padding:2px 8px;border-radius:3px;height:fit-content;white-space:nowrap;
+}
+.slip dt.bad{background:var(--stamp);}
+.slip dt.price{background:var(--lamp);color:var(--ink);}
+.slip dd{margin:0;font-size:15px;line-height:1.6;}
+.slip dd.mono{font-family:"Roboto Mono","Noto Sans TC",monospace;font-size:14px;}
+.slip .from{
+  margin:16px 0 0;padding-top:12px;border-top:1px dashed var(--paper-line);
+  font-size:12px;color:var(--muted);font-family:"Roboto Mono","Noto Sans TC",monospace;
+}
+
+/* 分頁 */
+.tabs{display:flex;flex-wrap:wrap;padding:0 24px;border-bottom:1px solid var(--paper-line);}
+.tabs button{
+  background:none;border:none;padding:12px 4px;margin-right:24px;
+  font-size:14px;font-weight:700;color:var(--muted);
+  border-bottom:3px solid transparent;
+}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--stamp);}
+.panel{padding:20px 24px 26px;}
+
+/* Google 評論 */
+.review{padding:14px 0;border-bottom:1px dashed var(--paper-line);}
+.review:last-child{border-bottom:none;}
+.review .top{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);}
+.review .stars{color:var(--lamp);letter-spacing:2px;font-size:14px;}
+.review p{margin:5px 0 0;}
+.attrib{
+  margin-top:14px;font-size:12px;color:var(--muted);
+  background:#FFFDF6;border:1px solid var(--paper-line);border-radius:6px;padding:10px 12px;
+}
+
+/* 部落客食記 */
+.post{display:block;text-decoration:none;color:inherit;padding:13px 0;border-bottom:1px dashed var(--paper-line);}
+.post:last-of-type{border-bottom:none;}
+.post h5{margin:0;font-size:16px;font-weight:700;}
+.post:hover h5{color:var(--stamp);text-decoration:underline;}
+.post .src{font-size:12px;color:var(--muted);margin:3px 0 0;}
+.post p{margin:5px 0 0;color:#4A554F;font-size:14px;}
+
+/* IG */
+.ig-note{color:#4A554F;margin:0 0 16px;}
+.ig-btn{
+  display:inline-block;text-decoration:none;background:var(--ink);color:var(--paper);
+  padding:12px 22px;border-radius:var(--radius);font-weight:700;font-size:15px;
+}
+.ig-btn:hover{background:var(--stamp);}
+
+/* 地圖與附近 */
+.map{
+  width:100%;height:290px;border:1px solid var(--paper-line);
+  border-radius:6px;background:#E6E2D6;display:block;
+}
+.map-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 24px;}
+.linkbtn{
+  text-decoration:none;font-size:14px;font-weight:700;
+  border:1px solid var(--ink);border-radius:var(--radius);
+  padding:9px 16px;color:var(--ink);
+}
+.linkbtn:hover{background:var(--ink);color:var(--paper);}
+.nearby-head{font-size:12px;letter-spacing:.18em;color:var(--stamp);font-weight:700;margin:0 0 4px;font-family:"Roboto Mono",monospace;}
+.nearby-sub{margin:0 0 12px;font-size:13px;color:var(--muted);}
+.near{
+  width:100%;text-align:left;background:#FFFDF6;border:1px solid var(--paper-line);
+  border-radius:6px;padding:11px 14px;margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+.near:hover{border-color:var(--stamp);}
+.near .n-name{font-weight:700;font-size:15px;}
+.near .n-meta{font-size:12px;color:var(--muted);}
+.near .n-dist{
+  font-family:"Roboto Mono",monospace;font-weight:700;font-size:14px;
+  color:var(--stamp);white-space:nowrap;
+}
+
+footer{color:rgba(242,237,223,.45);font-size:12px;text-align:center;padding:0 20px 40px;}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="mark">食單</p>
+    <div class="brand">
+      <div class="logo" id="brandName">選一家店</div>
+      <p class="tagline">Google 評論、部落客食記、IG 打卡 —— 一張單子看完</p>
+    </div>
+
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="搜尋店名或「台北 牛肉麵」" autocomplete="off">
+    </div>
+    <div class="tags" id="tags"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="layout">
+    <div>
+      <p class="listhead" id="listhead">搜尋結果</p>
+      <div id="list"></div>
+    </div>
+    <div id="detail"></div>
+  </div>
+</main>
+
+<footer>雛形展示用，店家與評論皆為虛構資料。</footer>
+
+<script>
+/* ============================================================
+   假資料區 —— 想加店家就照著複製一整段 { ... },
+   lat / lng 是經緯度，地圖和「附近」功能靠它計算
+   ============================================================ */
+const STORES = [
+  {
+    name:"林家牛肉麵", type:"牛肉麵", area:"台北・大安",
+    address:"台北市大安區信義路四段 88 號",
+    lat:25.0330, lng:121.5490, open:true, rating:4.5, count:2841,
+    summary:{
+      good:"紅燒湯頭偏濃、帶點中藥香，牛腱燉到筷子一夾就散，麵條是偏硬的細麵。",
+      must:"半筋半肉牛肉麵、滷豆干、燙青菜",
+      price:"單碗 180–260 元・小菜 40 元起・現金與行動支付皆可",
+      bad:"尖峰時段排隊 40 分鐘以上，店內悶熱、座位很擠，加麵要另外付 30 元。",
+      who:"想吃重口味紅燒、願意排隊的人。趕時間或帶長輩來會很痛苦。"
+    },
+    reviews:[
+      {author:"陳小姐", rating:5, time:"2 週前", text:"湯頭真的濃，跟外面稀稀的完全不一樣。牛腱給的份量很實在。"},
+      {author:"Kevin L.", rating:4, time:"1 個月前", text:"味道沒話說，但十二點去排了快一小時，建議避開午餐時間。"},
+      {author:"阿明", rating:5, time:"1 個月前", text:"從學生時代吃到現在，味道沒變過。小菜的滷豆干也好吃。"},
+      {author:"Tina W.", rating:3, time:"2 個月前", text:"偏鹹，湯喝到後面會渴。座位太擠了，隔壁桌手肘一直碰到我。"},
+      {author:"周先生", rating:5, time:"3 個月前", text:"半筋半肉必點，筋燉得非常軟。老闆記得熟客，很有人情味。"}
+    ],
+    posts:[
+      {title:"台北牛肉麵 TOP10 實測，這家湯頭第一名", src:"食光筆記 · 2026/05", snippet:"連續三天去吃不同時段，中午和晚上湯頭濃度真的有差，推薦晚上七點後。"},
+      {title:"信義路老店巡禮：三十年的紅燒配方", src:"巷口日常 · 2026/03", snippet:"訪問了第二代老闆，聊到當年為什麼堅持用牛大骨熬六小時。"},
+      {title:"帶爸媽吃的台北美食清單", src:"週末吃什麼 · 2025/11", snippet:"好吃是好吃，但要提醒長輩這裡沒有電梯、二樓座位要爬樓梯。"}
+    ],
+    ig:"林家牛肉麵"
+  },
+  {
+    name:"永康巷咖啡", type:"咖啡", area:"台北・大安",
+    address:"台北市大安區永康街 31 巷 4 號",
+    lat:25.0332, lng:121.5301, open:true, rating:4.4, count:876,
+    summary:{
+      good:"手沖選擇多，坐在窗邊看得到巷子裡的老樹，店員不會一直來打擾。",
+      must:"日曬耶加雪菲、肉桂捲",
+      price:"手沖 180–240 元・甜點 120 元起・低消一杯飲品",
+      bad:"只有 14 個座位，週末幾乎坐不到；洗手間要走到隔壁大樓。",
+      who:"想一個人安靜待著看書的人。多人聚會或要開會的不適合。"
+    },
+    reviews:[
+      {author:"Nina", rating:5, time:"1 週前", text:"肉桂捲是現烤的，配淺焙剛剛好。老闆話不多但很專業。"},
+      {author:"阿翔", rating:4, time:"3 週前", text:"咖啡很好，但位子真的少，我等了 20 分鐘才進去。"},
+      {author:"Mia H.", rating:4, time:"2 個月前", text:"很適合一個人來，可惜洗手間要走出去有點麻煩。"}
+    ],
+    posts:[
+      {title:"永康街咖啡散步：五家小店筆記", src:"街角咖啡誌 · 2026/04", snippet:"座位最少但也最安靜的一家，平日下午最容易有位子。"},
+      {title:"手沖新手該怎麼點單", src:"喝豆子的人 · 2026/02", snippet:"以這家的酒單為例，教你怎麼從烘焙度挑第一杯。"}
+    ],
+    ig:"永康街咖啡"
+  },
+  {
+    name:"通化阿德臭豆腐", type:"夜市", area:"台北・大安",
+    address:"台北市大安區通化街 42 號",
+    lat:25.0290, lng:121.5540, open:true, rating:4.2, count:1930,
+    summary:{
+      good:"外皮炸得酥，裡面還有豆香；泡菜是自己醃的，酸度不會蓋掉豆腐味。",
+      must:"綜合臭豆腐、鴨血湯",
+      price:"一份 70–110 元・只收現金",
+      bad:"沒有內用冷氣，夏天站著吃很熱；八點後隊伍會排到轉角。",
+      who:"逛夜市邊走邊吃的人。怕味道重或想坐著吃的人建議外帶。"
+    },
+    reviews:[
+      {author:"小魚", rating:5, time:"5 天前", text:"泡菜真的好吃，我每次都會多要一份。"},
+      {author:"Ben", rating:4, time:"2 週前", text:"豆腐炸得剛好，但站著吃有點狼狽，位子太少。"},
+      {author:"老李", rating:4, time:"1 個月前", text:"鴨血湯料多，冬天來一碗很暖。"}
+    ],
+    posts:[
+      {title:"通化夜市必吃六攤", src:"夜市巡邏隊 · 2026/06", snippet:"排第一名，但建議七點前到，八點後排隊時間會加倍。"},
+      {title:"臭豆腐的泡菜學問", src:"發酵日記 · 2026/01", snippet:"訪問老闆自醃泡菜的比例，酸度怎麼配油炸最平衡。"}
+    ],
+    ig:"通化夜市"
+  },
+  {
+    name:"晨光豆漿店", type:"早餐", area:"台北・中正",
+    address:"台北市中正區忠孝東路一段 12 號",
+    lat:25.0444, lng:121.5230, open:false, rating:4.3, count:1562,
+    summary:{
+      good:"現炸油條酥而不油，鹹豆漿的豆香濃、油條吸飽湯汁還保有口感。",
+      must:"鹹豆漿加油條、蛋餅、飯糰",
+      price:"一份 35–80 元・兩人吃飽約 150 元・只收現金",
+      bad:"六點半後蛋餅常常賣完，只收現金，內用位子不到十個。",
+      who:"早起、想吃傳統中式早餐的人。晚起或想坐下慢慢吃的人不適合。"
+    },
+    reviews:[
+      {author:"Sandy", rating:5, time:"1 週前", text:"鹹豆漿是我在台北吃過最好的，油條是現炸的，這點很加分。"},
+      {author:"老王", rating:4, time:"3 週前", text:"東西好吃，但只收現金這點要注意，我差點沒錢付。"},
+      {author:"Jenny C.", rating:5, time:"1 個月前", text:"六點就開了，上班前買一份剛好。飯糰料很多。"},
+      {author:"阿豪", rating:3, time:"2 個月前", text:"七點去蛋餅就沒了，有點失望。豆漿倒是還不錯。"},
+      {author:"林太太", rating:4, time:"2 個月前", text:"老闆娘很親切，會記得客人喜歡的甜度。"}
+    ],
+    posts:[
+      {title:"台北早餐地圖：五家值得早起的豆漿店", src:"晨型人日誌 · 2026/06", snippet:"這家排第二，輸在座位太少，但鹹豆漿確實是第一名。"},
+      {title:"現炸油條的祕密：訪晨光第三代", src:"老店尋味 · 2026/01", snippet:"每天凌晨三點開始揉麵，一天只炸三批，賣完就收。"}
+    ],
+    ig:"晨光豆漿"
+  },
+  {
+    name:"山下咖啡", type:"咖啡", area:"台中・西區",
+    address:"台中市西區精誠十一街 5 號",
+    lat:24.1500, lng:120.6650, open:true, rating:4.7, count:934,
+    summary:{
+      good:"自家烘豆，淺焙耶加雪菲酸質乾淨；老宅改建，二樓靠窗的位子很安靜。",
+      must:"淺焙單品手沖、自製檸檬塔",
+      price:"手沖 200–280 元・甜點 150 元起・低消一杯飲品",
+      bad:"假日限時 90 分鐘、沒有插座，附近停車位難找，不適合工作。",
+      who:"想安靜喝一杯好咖啡、聊天兩小時內結束的人。要帶電腦辦公的請另尋。"
+    },
+    reviews:[
+      {author:"Ray", rating:5, time:"5 天前", text:"店主很願意聊豆子，問他推薦什麼一定不會錯。"},
+      {author:"小圓", rating:5, time:"2 週前", text:"老房子的氛圍超好，拍照很出片。手沖水準很高。"},
+      {author:"David H.", rating:4, time:"1 個月前", text:"咖啡沒話說，但沒插座、假日限時，要有心理準備。"},
+      {author:"Peggy", rating:5, time:"1 個月前", text:"甜點是自製的，檸檬塔酸度剛好，跟淺焙很搭。"},
+      {author:"阿凱", rating:4, time:"3 個月前", text:"停車不方便，建議騎車或走路過來。"}
+    ],
+    posts:[
+      {title:"台中西區老宅咖啡三選", src:"城市散步 · 2026/04", snippet:"三家裡面咖啡最專業的一家，但也是最不適合久坐的一家。"},
+      {title:"自家烘焙店的生存之道", src:"咖啡人週記 · 2025/12", snippet:"聊到為什麼堅持不做外送，也不接大量團購。"}
+    ],
+    ig:"山下咖啡"
+  },
+  {
+    name:"綠川丼飯屋", type:"日式", area:"台中・西區",
+    address:"台中市西區精誠路 128 號",
+    lat:24.1471, lng:120.6693, open:true, rating:4.5, count:1120,
+    summary:{
+      good:"午間定食 CP 值高，鮭魚丼的魚肉厚度和油花在這個價位少見。",
+      must:"炙燒鮭魚丼、茶碗蒸",
+      price:"定食 260–420 元・平日午間套餐 240 元",
+      bad:"店面小、不接受訂位，十二點到一點一定要等；魚料會依當日進貨調整。",
+      who:"中午想吃得好又不想花太多錢的上班族。要準時吃完趕回公司的人請提早去。"
+    },
+    reviews:[
+      {author:"Vicky", rating:5, time:"1 週前", text:"平日午間套餐 240 元有丼飯、味噌湯、茶碗蒸，太划算。"},
+      {author:"阿哲", rating:4, time:"1 個月前", text:"好吃，但十二點半去等了 30 分鐘，建議十一點半就到。"},
+      {author:"Momo", rating:5, time:"2 個月前", text:"炙燒鮭魚的焦香很棒，飯的醋度也調得剛好。"}
+    ],
+    posts:[
+      {title:"台中精誠商圈午餐推薦", src:"上班族食堂 · 2026/05", snippet:"這條街上最值得排隊的一家，但務必避開十二點整。"},
+      {title:"丼飯的魚料怎麼看新鮮度", src:"生食筆記 · 2026/03", snippet:"以這家為例，教你從色澤和切面判斷。"}
+    ],
+    ig:"台中丼飯"
+  },
+  {
+    name:"阿蘭鹽酥雞", type:"夜市", area:"台南・中西",
+    address:"台南市中西區國華街三段 60 號",
+    lat:22.9950, lng:120.1970, open:true, rating:4.1, count:3207,
+    summary:{
+      good:"現點現炸，九層塔給得大方，甜不辣和四季豆是老客人的固定班底。",
+      must:"四季豆、甜不辣、雞屁股",
+      price:"一份 60–150 元・兩人份約 250 元・只收現金",
+      bad:"排隊平均 25 分鐘，油溫掌控時好時壞，晚上十點後品質明顯下滑。",
+      who:"逛夜市想帶消夜的人。對油炸品質要求高的人建議九點前去。"
+    },
+    reviews:[
+      {author:"小咪", rating:5, time:"4 天前", text:"九層塔超多，這才是重點！辣粉可以要求多加。"},
+      {author:"Jason", rating:3, time:"2 週前", text:"上次很好吃，這次太油，可能是換油的時間問題。"},
+      {author:"台南人", rating:5, time:"1 個月前", text:"從小吃到大，四季豆一定要點，炸得很脆。"},
+      {author:"Wendy", rating:4, time:"1 個月前", text:"排隊真的久，但看到現炸還是覺得值得。"},
+      {author:"阿德", rating:3, time:"2 個月前", text:"十點半去買，感覺油已經有點舊了，味道差一截。"}
+    ],
+    posts:[
+      {title:"國華街消夜清單，鹽酥雞篇", src:"台南吃透透 · 2026/07", snippet:"實測三家，這家勝在九層塔和份量，輸在等待時間。"},
+      {title:"鹽酥雞好不好吃，看油就知道", src:"炸物研究室 · 2026/02", snippet:"建議九點前造訪，換油後的第一批品質最穩定。"}
+    ],
+    ig:"阿蘭鹽酥雞"
+  },
+  {
+    name:"阿財牛肉湯", type:"牛肉麵", area:"台南・中西",
+    address:"台南市中西區保安路 17 號",
+    lat:22.9928, lng:120.1992, open:false, rating:4.6, count:4415,
+    summary:{
+      good:"溫體牛當天現宰，肉片下鍋只燙幾秒，湯是清的但甜味很足。",
+      must:"牛肉湯加白飯、燙牛肉",
+      price:"一碗 130–180 元・加飯 20 元",
+      bad:"清晨五點開到中午前就收，賣完提早關門；停車幾乎不可能。",
+      who:"能早起、專程來吃一碗湯的人。睡到中午才出門的人請放棄。"
+    },
+    reviews:[
+      {author:"Howard", rating:5, time:"6 天前", text:"六點去剛好，肉片粉嫩，湯完全沒有腥味。"},
+      {author:"婷婷", rating:5, time:"3 週前", text:"配薑絲很提味，白飯淋一點肉汁就很滿足。"},
+      {author:"阿義", rating:4, time:"2 個月前", text:"十點半到就賣完了，白跑一趟，要早點去。"}
+    ],
+    posts:[
+      {title:"台南牛肉湯早餐指南", src:"府城日常 · 2026/06", snippet:"六到八點是黃金時段，太晚肉的溫度和口感都會打折。"},
+      {title:"溫體牛為什麼只有台南吃得到", src:"產地餐桌 · 2026/04", snippet:"從屠宰到上桌不超過三小時，這個時間差就是關鍵。"}
+    ],
+    ig:"台南牛肉湯"
+  },
+  {
+    name:"海風生魚片丼", type:"日式", area:"宜蘭・頭城",
+    address:"宜蘭縣頭城鎮濱海路二段 21 號",
+    lat:24.8600, lng:121.8300, open:true, rating:4.6, count:1188,
+    summary:{
+      good:"當日漁港直送，丼飯份量大、生魚片切得厚，價格比台北同級便宜一半。",
+      must:"綜合生魚片丼、味噌魚湯",
+      price:"丼飯 220–380 元・味噌湯免費續",
+      bad:"沒有訂位、假日中午要抽號碼牌，遇到風浪大會臨時公休。",
+      who:"開車來宜蘭玩、能配合現場排隊的人。行程排很緊的不建議排進去。"
+    },
+    reviews:[
+      {author:"魚痴", rating:5, time:"1 週前", text:"鮪魚厚度誇張，這個價錢在台北不可能吃到。"},
+      {author:"Amy", rating:4, time:"3 週前", text:"很好吃，但假日十一點半到就已經要等一小時了。"},
+      {author:"陳先生", rating:5, time:"1 個月前", text:"問老闆今天什麼最新鮮，照著點準沒錯。"},
+      {author:"Lulu", rating:5, time:"2 個月前", text:"味噌湯免費續，裡面還有魚骨熬的料。"},
+      {author:"小林", rating:3, time:"2 個月前", text:"特地開車去結果公休，出發前記得先打電話。"}
+    ],
+    posts:[
+      {title:"宜蘭海線一日遊：吃海鮮的三個時段", src:"東岸旅記 · 2026/06", snippet:"建議十一點前抵達，避開遊覽車團客。"},
+      {title:"為什麼漁港旁邊的丼飯比較便宜", src:"產地餐桌 · 2026/03", snippet:"少了中盤商一手，價差就是這樣來的。"}
+    ],
+    ig:"頭城美食"
+  }
+];
+
+/* ============================================================
+   以下是程式邏輯 —— 先看得懂上面的資料就好，這區之後再研究
+   ============================================================ */
+const listEl   = document.getElementById("list");
+const detailEl = document.getElementById("detail");
+const headEl   = document.getElementById("listhead");
+const tagsEl   = document.getElementById("tags");
+const brandEl  = document.getElementById("brandName");
+const qEl      = document.getElementById("q");
+
+let activeTag = "全部";
+let selected  = STORES[0].name;
+let activeTab = "google";
+
+const TAGS = ["全部", ...new Set(STORES.map(s => s.type))];
+tagsEl.innerHTML = TAGS.map(t =>
+  `<button class="tag" data-tag="${t}" aria-pressed="${t === activeTag}">${t}</button>`
+).join("");
+
+tagsEl.addEventListener("click", e => {
+  const btn = e.target.closest(".tag");
+  if (!btn) return;
+  activeTag = btn.dataset.tag;
+  render();
+});
+qEl.addEventListener("input", render);
+
+function filtered(){
+  const q = qEl.value.trim().toLowerCase();
+  return STORES.filter(s => {
+    const matchTag = activeTag === "全部" || s.type === activeTag;
+    const hay = `${s.name} ${s.type} ${s.area} ${s.address}`.toLowerCase();
+    const matchQ = q === "" || q.split(/\s+/).every(w => hay.includes(w));
+    return matchTag && matchQ;
+  });
+}
+
+function stars(n){ return "★".repeat(Math.round(n)) + "☆".repeat(5 - Math.round(n)); }
+
+/* 兩點經緯度之間的直線距離（公尺）。
+   想像地球是一顆球，這個公式在算球面上兩點的最短距離。 */
+function distance(a, b){
+  const R = 6371000;                       // 地球半徑（公尺）
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function readable(m){
+  return m < 1000 ? `${Math.round(m/10)*10} 公尺` : `${(m/1000).toFixed(1)} 公里`;
+}
+/* 找出 3 公里內的其他店，由近到遠排序 */
+function nearbyOf(s){
+  return STORES
+    .filter(o => o.name !== s.name)
+    .map(o => ({ store:o, m:distance(s, o) }))
+    .filter(x => x.m <= 3000)
+    .sort((a,b) => a.m - b.m);
+}
+
+function render(){
+  const items = filtered();
+  headEl.textContent = `找到 ${items.length} 家`;
+
+  if (items.length === 0){
+    listEl.innerHTML = `<div class="empty">沒有符合的店家。換個關鍵字，或點上面的「全部」看所有店。</div>`;
+    detailEl.innerHTML = "";
+    brandEl.textContent = "選一家店";
+    document.title = "食單 — 一張單子，看完一家店";
+    return;
+  }
+
+  if (!items.some(s => s.name === selected)) selected = items[0].name;
+
+  listEl.innerHTML = items.map(s => `
+    <button class="card" data-name="${s.name}" aria-current="${s.name === selected}">
+      <h3>${s.name}</h3>
+      <p class="meta">${s.type}・${s.area}</p>
+      <span class="score"><b>${s.rating}</b><span>${s.count.toLocaleString()} 則評論</span></span>
+    </button>
+  `).join("");
+
+  renderDetail(STORES.find(s => s.name === selected));
+}
+
+function renderDetail(s){
+  // 招牌換成目前這家店的名字
+  brandEl.textContent = s.name;
+  document.title = `${s.name} — 食單`;
+
+  const near = nearbyOf(s);
+  const bbox = [s.lng - 0.005, s.lat - 0.003, s.lng + 0.005, s.lat + 0.003].join("%2C");
+
+  detailEl.innerHTML = `
+    <div class="detail">
+      <div class="detail-head">
+        <h2>${s.name}<span class="chip ${s.open ? "open" : "closed"}">${s.open ? "營業中" : "休息中"}</span></h2>
+        <p class="addr">${s.address}</p>
+      </div>
+
+      <!-- 招牌功能：把所有來源濃縮成一張點餐單 -->
+      <section class="slip">
+        <h4>重 點 單</h4>
+        <dl>
+          <dt>好吃在哪</dt><dd>${s.summary.good}</dd>
+          <dt>必點</dt><dd class="mono">${s.summary.must}</dd>
+          <dt class="price">價位</dt><dd class="mono">${s.summary.price}</dd>
+          <dt class="bad">雷點</dt><dd>${s.summary.bad}</dd>
+          <dt>適合誰</dt><dd>${s.summary.who}</dd>
+        </dl>
+        <p class="from">整理自 Google 評論 ${s.reviews.length} 則、部落客食記 ${s.posts.length} 篇。<br>此為雛形展示，實際版本由 AI 即時彙整。</p>
+      </section>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="google" aria-selected="${activeTab==="google"}">Google 評論</button>
+        <button role="tab" data-tab="posts"  aria-selected="${activeTab==="posts"}">部落客食記</button>
+        <button role="tab" data-tab="ig"     aria-selected="${activeTab==="ig"}">IG 打卡</button>
+        <button role="tab" data-tab="map"    aria-selected="${activeTab==="map"}">地圖・附近</button>
+      </div>
+
+      ${activeTab === "google" ? `
+      <div class="panel">
+        <div class="score"><b>${s.rating}</b><span>／ 5.0・共 ${s.count.toLocaleString()} 則</span></div>
+        ${s.reviews.map(r => `
+          <div class="review">
+            <div class="top"><span>${r.author}<span class="stars"> ${stars(r.rating)}</span></span><span>${r.time}</span></div>
+            <p>${r.text}</p>
+          </div>`).join("")}
+        <p class="attrib">評論由 Google 提供，僅顯示 5 則且不儲存 —— 這是 Google 條款的規定，正式版需標示 Google 標誌與原作者連結。</p>
+      </div>` : ""}
+
+      ${activeTab === "posts" ? `
+      <div class="panel">
+        ${s.posts.map(p => `
+          <a class="post" href="#" onclick="return false;">
+            <h5>${p.title}</h5>
+            <p class="src">${p.src}</p>
+            <p>${p.snippet}</p>
+          </a>`).join("")}
+        <p class="attrib">只顯示標題與一句摘要，點擊帶去原文，不轉載全文。</p>
+      </div>` : ""}
+
+      ${activeTab === "ig" ? `
+      <div class="panel">
+        <p class="ig-note">IG 不開放讓第三方抓取別人的貼文，所以這裡不存任何 IG 內容，直接把你帶到 IG 上這家店的標籤頁。</p>
+        <a class="ig-btn" href="https://www.instagram.com/explore/tags/${encodeURIComponent(s.ig)}/" target="_blank" rel="noopener">在 IG 看 #${s.ig}</a>
+      </div>` : ""}
+
+      ${activeTab === "map" ? `
+      <div class="panel">
+        <iframe class="map" title="${s.name} 位置圖" loading="lazy"
+          src="https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${s.lat}%2C${s.lng}"></iframe>
+        <div class="map-actions">
+          <a class="linkbtn" target="_blank" rel="noopener"
+             href="https://www.google.com/maps/search/?api=1&query=${s.lat}%2C${s.lng}">在 Google 地圖開啟</a>
+          <a class="linkbtn" target="_blank" rel="noopener"
+             href="https://www.google.com/maps/dir/?api=1&destination=${s.lat}%2C${s.lng}">導航到這裡</a>
+        </div>
+
+        <p class="nearby-head">走 路 可 到</p>
+        ${near.length ? `
+          <p class="nearby-sub">從${s.name}出發，3 公里內的其他店：</p>
+          ${near.map(n => `
+            <button class="near" data-name="${n.store.name}">
+              <span>
+                <span class="n-name">${n.store.name}</span>
+                <span class="n-meta"><br>${n.store.type}・評分 ${n.store.rating}</span>
+              </span>
+              <span class="n-dist">${readable(n.m)}</span>
+            </button>`).join("")}
+        ` : `<p class="nearby-sub">3 公里內沒有其他收錄的店家。資料變多之後這裡就會有內容。</p>`}
+      </div>` : ""}
+    </div>
+  `;
+}
+
+// 點左邊卡片 → 換右邊內容
+listEl.addEventListener("click", e => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  selected = card.dataset.name;
+  activeTab = "google";
+  render();
+});
+
+// 點分頁，或點「附近」的店
+detailEl.addEventListener("click", e => {
+  const near = e.target.closest(".near");
+  if (near){
+    selected = near.dataset.name;
+    activeTab = "map";
+    qEl.value = "";        // 清掉搜尋字，免得跳過去的店被過濾掉
+    activeTag = "全部";
+    tagsEl.querySelectorAll(".tag").forEach(b =>
+      b.setAttribute("aria-pressed", b.dataset.tag === "全部"));
+    render();
+    window.scrollTo({ top:0, behavior:"smooth" });
+    return;
+  }
+  const tab = e.target.closest("[data-tab]");
+  if (!tab) return;
+  activeTab = tab.dataset.tab;
+  renderDetail(STORES.find(s => s.name === selected));
+});
+
+render();
+</script>
+</body>
+</html>
